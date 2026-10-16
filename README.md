@@ -1,0 +1,1 @@
+# Econometria-2---Poster-Precio-del-oro-
