@@ -24,6 +24,6 @@ Base_Dir = Path(__file__).resolve().parents[0]     #__file__ hace referencia al 
 # Obtener ruta del directorio de la base de datos
 Directorio = Base_Dir / "Base de datos - Poster"
 
-
+#Rutas de la base de datos
 Ruta = Directorio / "Base de datos - Poster.xlsx"
 # %%
