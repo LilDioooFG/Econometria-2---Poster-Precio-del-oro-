@@ -1,7 +1,8 @@
 # %% Importacion de librerias
 
 #Manejar rutas relativas
-from pathlib import Path #manejar rutas relativas 
+from pathlib import Path
+from re import S #manejar rutas relativas 
 
 #
 import pandas as pd #manejo de bases de datos
@@ -14,7 +15,7 @@ from scipy.stats import jarque_bera, probplot # type: ignore
 from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 from statsmodels.tsa.stattools import adfuller, kpss
 from statsmodels.tsa.statespace.sarimax import SARIMAX
-from statsmodels.stats.diagnostic import acorr_ljungbox, het_arch, acorr_breusch_godfrey
+from statsmodels.stats.diagnostic import acorr_ljungbox, het_arch
 
 # %% Base de datos
 
@@ -31,7 +32,6 @@ print(precio_oro_df.head())
 print(precio_oro_df.info())
 
 precio_oro_df.index = pd.to_datetime(precio_oro_df["Fecha"])
-
 # %%Creacion Series de tiempo
 
 #La serie de tiempo se va a llamar precio_oro_serie y se va a crear a partir de la columna "Precio" del DataFrame precio_oro_df.
@@ -40,17 +40,15 @@ precio_serie = pd.to_numeric(precio_serie, errors="coerce")
 precio_serie = precio_serie.dropna()
 
 print(precio_serie.head())
-print(precio_serie.info())
-
 print(type(precio_serie))
 print(precio_serie.describe())
-# %% =========================
+# %%=========================
 #   PASO 1: Idetificacion
-#=============================
+#===========================
 
 #Grafico de la serie de tiempo
 plt.figure(figsize=(12, 6))
-plt.plot(precio_serie, color="blue", label="Precio del oro")
+plt.plot(precio_serie,color="darkblue", label="Precio del oro")
 plt.xlabel("Fecha")
 plt.ylabel("Precio")
 plt.title("Serie de tiempo: Precio del oro")
@@ -109,6 +107,7 @@ plt.show()
 # %%Diferencia del logaritmo de la serie de tiempo
 
 precio_serie_logdiff = np.log(precio_serie).diff().dropna()
+precio_serie_logdiff.index.freq = 'MS'
 
 plt.figure(figsize=(12, 6))
 plt.plot(precio_serie_logdiff, color="blue", label="Precio del oro (log-diferenciado)")
@@ -154,6 +153,124 @@ if adf_result_logdiff[1] < 0.05:
     print("ADF: Rechazamos H0. La serie log-diferenciada es estacionaria según el test ADF.")
 else:
     print("ADF: No rechazamos H0. La serie log-diferenciada no es estacionaria según el test ADF.")
+    #Dado que la FAC 
+# %% Criterios de informacion AIC y BIC
+modelos_candidatos = [(1,1,0),
+                      (2,1,1),
+                      (1,1,2),
+                      (0,1,1),
+                      (1,1,1),
+                      (2,1,0),
+                      (0,1,2)]
 
+resultados = []
 
-# %%
+for order in modelos_candidatos:
+    modelo = SARIMAX(np.log(precio_serie),order=order, trend="c")
+    resultado = modelo.fit(disp=False)
+    resultados.append({
+        "Modelo":f"ARIMA{order}",
+        "AIC": resultado.aic,
+        "BIC": resultado.bic,
+        "log-likelihood": resultado.llf
+    })
+
+resultados_IC = pd.DataFrame(resultados)
+resultados_IC = resultados_IC.sort_values(by="AIC").reset_index(drop=True)
+
+print("\nResultados de los modelos ARIMA:")
+print(resultados_IC)
+# %%==================
+#    2. ESTIMACION
+#======================
+
+modelo_ARIMA110 = SARIMAX(
+    np.log(precio_serie),
+    order = (1,1,0),
+    trend = "c",
+    enforce_stationarity = False,
+    enforce_invertibility = False
+)
+type(modelo_ARIMA110)
+
+#Estimar el modelo
+estimacion_ARIMA110 = modelo_ARIMA110.fit(disp=False)
+
+type(estimacion_ARIMA110)
+
+#Resultados estimacion
+print(estimacion_ARIMA110.summary())
+# %%==========================
+#  3. VALIDACION DE SUPUESTOS
+#=============================
+
+residuales = estimacion_ARIMA110.resid.dropna()
+type(residuales)
+
+#Grafico de los resuduales
+
+plt.figure(figsize=(12,6))
+plt.plot(residuales.iloc[1:-1])
+plt.title("Grafico Residuales modelo ARIMA(1,1,0)")
+plt.xlabel("Fecha")
+plt.ylabel("Valor")
+plt.grid(True)
+plt.show()
+
+print(residuales.describe())
+# %%FAC y FACP de los residuos
+
+fig,axes = plt.subplots(1,2, figsize =(12,6))
+
+plot_acf(
+    residuales,
+    lags=24,
+    alpha=0.05,
+    bartlett_confint=False,
+    ax=axes[0]
+)
+axes[0].set_title("FAC de los residuales")
+
+plot_pacf(
+    residuales,
+    lags=24,
+    alpha = 0.05,
+    ax=axes[1]
+)
+
+axes[1].set_title("FACP de los residuales")
+
+plt.tight_layout()
+plt.show()
+# %%Test de Supuestos
+
+ljung_box = acorr_ljungbox(
+    residuales,
+    lags = [6,12,18,24],
+    return_df = True
+)
+
+print("Prueba ljung box")
+print(ljung_box)
+# %% FAC y FACP de residuales al cuadrado
+
+fig,axes = plt.subplots(1,2, figsize=(12,6))
+
+plot_acf(
+    residuales**2,
+    lags =24,
+    alpha = 0.05,
+    bartlett_confint=False,
+    ax=axes[0]
+)
+
+axes[0].set_title("FAC de los residuos al cuadrado")
+
+plot_pacf(
+    residuales**2,
+    lags=24,
+    alpha=0.05,
+    ax=axes[1]
+)
+axes[1].set_title("FACP de los residuales al cuadrado")
+# %%Test 
