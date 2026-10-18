@@ -210,7 +210,7 @@ type(residuales)
 #Grafico de los resuduales
 
 plt.figure(figsize=(12,6))
-plt.plot(residuales.iloc[1:-1])
+plt.plot(residuales.iloc[2:-1]) #PREGUNTAR A MONITOR O PROFESOR SI SE PUEDE EMPEZAR EN 2 PORQUE EN 1 Y 0 SE DISPARA
 plt.title("Grafico Residuales modelo ARIMA(1,1,0)")
 plt.xlabel("Fecha")
 plt.ylabel("Valor")
@@ -273,4 +273,62 @@ plot_pacf(
     ax=axes[1]
 )
 axes[1].set_title("FACP de los residuales al cuadrado")
-# %%Test 
+# %%Test ARCH de heterocedasticidad
+arch_test = het_arch(
+    residuales,
+    nlags=24
+)
+
+print(".\n Prueba Arch de Heterocedasticidad")
+print("LM statistic:", arch_test[0])
+print("LM p-Value:", arch_test[1])
+# %%Q-Q plot de los residuos
+
+plt.figure(figsize=(7,7))
+probplot(residuales.iloc[2:-1], dist="norm", plot=plt)
+plt.title("Q-Q plot de los resuduos")
+plt.grid(True)
+plt.show()
+
+# %%Test Jarque-Bera
+
+JB_test =  jarque_bera(residuales.iloc[2:-1])
+
+print("Prueba Jarque-Bera")
+print("Estadistico:", JB_test[0])
+print("P-Value:", JB_test[1])
+# %%==================
+#   4. PRONOSTICO
+#=====================
+
+pronostico_log = estimacion_ARIMA110.get_forecast(steps=10)
+
+pronostico_puntual_log = pronostico_log.predicted_mean
+varianza_pronostico_log = pronostico_log.var_pred_mean
+intervalos_log = pronostico_log.conf_int()
+
+pronostico_nivel = np.exp(pronostico_puntual_log +0.5 * varianza_pronostico_log)
+intervalo_nivel = np.exp(intervalos_log)
+
+
+tabla_pronosticos= pd.DataFrame({
+    "Pronostico Puntual":pronostico_nivel,
+    "Limite inferior":intervalo_nivel.iloc[:,0],
+    "Limite superior":intervalo_nivel.iloc[:,1]
+})
+
+print(tabla_pronosticos)
+# %%Grafico Pronostico
+
+plt.figure(figsize=(12,6))
+plt.plot(precio_serie, label="Datos historicos")
+plt.plot(pronostico_nivel, color="Red", label = "Pronostico")
+plt.fill_between(
+    pronostico_nivel.index,
+    intervalo_nivel.iloc[:,0],
+    intervalo_nivel.iloc[:,1],
+    color="pink",
+    alpha=0.3,
+    label="Intervalo de confianza"
+)
+# %%Fin
