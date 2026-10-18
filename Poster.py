@@ -2,7 +2,6 @@
 
 #Manejar rutas relativas
 from pathlib import Path
-from re import S #manejar rutas relativas 
 
 #
 import pandas as pd #manejo de bases de datos
@@ -331,4 +330,6 @@ plt.fill_between(
     alpha=0.3,
     label="Intervalo de confianza"
 )
+plt.title("Grafico Pronostico")
+plt.show()
 # %%Fin
